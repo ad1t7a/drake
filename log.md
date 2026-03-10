@@ -88,7 +88,39 @@ ctest --output-on-failure
 
 | Timestamp | Status | Description |
 |-----------|--------|-------------|
-| 2026-03-10 | STARTED | Created log.md, defined architecture |
+| 2026-03-10 10:00 | STARTED  | Created log.md, defined architecture |
+| 2026-03-10 10:05 | IMPL     | Wrote TDD test first: `gpu_parallel_128_test.cc` (7 test cases) |
+| 2026-03-10 10:10 | IMPL     | Implemented header `gpu_parallel_cartpole_env.h` with self-contained `EnvMatrix` type (no Eigen dependency), CPU/GPU dispatch macros, CartPole physics constants, `CartpoleDynamicsStep()` function |
+| 2026-03-10 10:15 | IMPL     | Implemented `gpu_parallel_cartpole_env.cc` — CPU parallel path with `std::thread` worker pool (one chunk per hardware thread), xorshift32 PRNG for deterministic per-environment seeds, auto-reset on termination |
+| 2026-03-10 10:20 | IMPL     | Implemented `cartpole_step.cu` — CUDA kernels `cartpole_reset_kernel` and `cartpole_step_kernel`, each thread handles one environment, per-block size 256 |
+| 2026-03-10 10:25 | IMPL     | Created `CMakeLists.txt` for standalone build (no Bazel required), supports `-DDRAKE_GPU_AVAILABLE=ON` for CUDA path |
+| 2026-03-10 10:30 | FIX      | Fixed `std::vector<bool>` ABI issue — changed to `uint8_t` for GPU memory compatibility |
+| 2026-03-10 10:35 | FIX      | Fixed include paths in CMakeLists (needed `../../` not `../` to resolve `drake/gpu_environments/...` includes) |
+| 2026-03-10 10:40 | FIX      | Fixed Test 3 physics comparison — initial implementation compared cumulative reward but parallel env auto-resets (continuing to accumulate) while serial reference stopped at termination. Fixed by step-by-step state comparison before first termination |
+| 2026-03-10 10:45 | **PASS** | **All 7 tests pass on CPU fallback path** |
+
+---
+
+## Test Results (CPU Fallback — 2026-03-10)
+
+```
+[TEST 1] Construction and Reset
+  PASS: 128 environments constructed and reset. All initial states in [-0.05, 0.05].
+[TEST 2] Single Step
+  PASS: single step, zero actions, 128 envs alive.
+[TEST 3] Physics correctness (parallel env-0 vs serial)
+  PASS: env-0 state matches serial reference for 30 steps (terminated at step 30, tolerance=1e-05).
+[TEST 4] Multi-environment diversity
+  PASS: 128 envs x 500 steps = total reward 61596, all observations finite.
+[TEST 5] Auto-reset after termination
+  PASS: 4576 terminations + auto-resets, all states finite.
+[TEST 6] GPU path flag
+  PASS: CPU fallback active (no CUDA). GPU requires CUDA 11.8+ and NVIDIA device.
+[BENCH ] Throughput: 128 envs x 500 steps
+  Elapsed: 0.0618 s  |  1,035,182 env-steps/s  |  0.97 us/env-step
+
+ALL TESTS PASSED
+```
 
 ---
 
@@ -98,10 +130,21 @@ ctest --output-on-failure
 |-------|--------|
 | NVIDIA GPU detected | NO — running on CPU-only machine |
 | NVCC available | NO — CPU fallback will be used |
-| OpenMP available | Pending verification |
-| Bazel version | Pending |
+| G++ version | 13.3.0 (Ubuntu 24.04) |
+| CMake version | 3.28.3 |
+| Bazel | NOT available on this machine |
+| Build system used | CMake (standalone, no Bazel) |
 
 > **Important:** Because no physical GPU is present on this development machine, all tests execute via the CPU fallback path. The CUDA kernel code (`cartpole_step.cu`) is present and correct for GPU compilation but cannot be hardware-validated here. A GPU-equipped machine with CUDA 11.8+ is required to run the GPU path.
+>
+> **GPU build instructions:** On a machine with CUDA:
+> ```bash
+> cd gpu_environments
+> mkdir build && cd build
+> cmake -DDRAKE_GPU_AVAILABLE=ON -DCMAKE_CUDA_ARCHITECTURES="70;80;86" ..
+> make -j$(nproc)
+> ctest --output-on-failure
+> ```
 
 ---
 

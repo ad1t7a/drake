@@ -1,0 +1,57 @@
+load("//tools/lint:lint.bzl", "add_lint_tests")
+load("//tools/skylark:cc.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+# ---------------------------------------------------------------------------
+# GPU-parallel CartPole environment — CPU (no-CUDA) build
+# ---------------------------------------------------------------------------
+
+cc_library(
+    name = "gpu_parallel_cartpole_env",
+    srcs = ["gpu_parallel_cartpole_env.cc"],
+    hdrs = ["gpu_parallel_cartpole_env.h"],
+    copts = ["-std=c++17"],
+    deps = [
+        "@eigen//:eigen",
+    ],
+)
+
+# ---------------------------------------------------------------------------
+# GPU-parallel CartPole environment — CUDA build
+#
+# To build with CUDA support:
+#   bazel build //gpu_environments:gpu_parallel_cartpole_env_cuda \
+#       --define=drake_gpu=true
+#
+# This target requires:
+#   - NVIDIA CUDA Toolkit 11.8+ (nvcc in PATH)
+#   - An NVIDIA GPU with compute capability >= 7.0
+#
+# NOTE: This target is tagged "manual" so it is not built by default.
+# ---------------------------------------------------------------------------
+
+cc_library(
+    name = "gpu_parallel_cartpole_env_cuda",
+    srcs = [
+        "gpu_parallel_cartpole_env.cc",
+        # cartpole_step.cu must be compiled separately with nvcc.
+        # Provide the compiled object as a cc_import or handle via genrule.
+    ],
+    hdrs = ["gpu_parallel_cartpole_env.h"],
+    copts = [
+        "-std=c++17",
+        "-DDRAKE_GPU_AVAILABLE",
+    ],
+    tags = ["manual"],
+    deps = [
+        "@eigen//:eigen",
+    ],
+    # Link against CUDA runtime.
+    linkopts = [
+        "-lcuda",
+        "-lcudart",
+    ],
+)
+
+add_lint_tests(enable_clang_format_lint = False)
