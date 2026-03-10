@@ -4,54 +4,73 @@ load("//tools/skylark:cc.bzl", "cc_library")
 package(default_visibility = ["//visibility:public"])
 
 # ---------------------------------------------------------------------------
-# GPU-parallel CartPole environment — CPU (no-CUDA) build
+# Shared infrastructure header (no compiled code)
 # ---------------------------------------------------------------------------
 
 cc_library(
-    name = "gpu_parallel_cartpole_env",
-    srcs = ["gpu_parallel_cartpole_env.cc"],
-    hdrs = ["gpu_parallel_cartpole_env.h"],
+    name = "gpu_env_common",
+    hdrs = ["gpu_env_common.h"],
     copts = ["-std=c++17"],
-    deps = [
-        "@eigen//:eigen",
-    ],
+    visibility = ["//visibility:public"],
 )
 
 # ---------------------------------------------------------------------------
-# GPU-parallel CartPole environment — CUDA build
-#
-# To build with CUDA support:
-#   bazel build //gpu_environments:gpu_parallel_cartpole_env_cuda \
-#       --define=drake_gpu=true
-#
-# This target requires:
-#   - NVIDIA CUDA Toolkit 11.8+ (nvcc in PATH)
-#   - An NVIDIA GPU with compute capability >= 7.0
-#
-# NOTE: This target is tagged "manual" so it is not built by default.
+# GPU-parallel environments — CPU build (no CUDA required)
 # ---------------------------------------------------------------------------
 
 cc_library(
-    name = "gpu_parallel_cartpole_env_cuda",
+    name = "gpu_environments",
     srcs = [
         "gpu_parallel_cartpole_env.cc",
-        # cartpole_step.cu must be compiled separately with nvcc.
-        # Provide the compiled object as a cc_import or handle via genrule.
+        "gpu_parallel_pendulum_env.cc",
     ],
-    hdrs = ["gpu_parallel_cartpole_env.h"],
+    hdrs = [
+        "gpu_env_common.h",
+        "gpu_parallel_cartpole_env.h",
+        "gpu_parallel_pendulum_env.h",
+    ],
+    copts = ["-std=c++17"],
+    deps = [],
+)
+
+# Backwards-compat alias.
+cc_library(
+    name = "gpu_parallel_cartpole_env",
+    deps = [":gpu_environments"],
+)
+
+# ---------------------------------------------------------------------------
+# GPU-parallel environments — CUDA build
+#
+# Build with:
+#   bazel build //gpu_environments:gpu_environments_cuda \
+#       --define=drake_gpu=true
+#
+# Requires: CUDA 11.8+, NVIDIA GPU with compute capability >= 7.0.
+# ---------------------------------------------------------------------------
+
+cc_library(
+    name = "gpu_environments_cuda",
+    srcs = [
+        "gpu_parallel_cartpole_env.cc",
+        "gpu_parallel_pendulum_env.cc",
+        # .cu files must be pre-compiled with nvcc and provided as cc_import.
+    ],
+    hdrs = [
+        "gpu_env_common.h",
+        "gpu_parallel_cartpole_env.h",
+        "gpu_parallel_pendulum_env.h",
+    ],
     copts = [
         "-std=c++17",
         "-DDRAKE_GPU_AVAILABLE",
     ],
-    tags = ["manual"],
-    deps = [
-        "@eigen//:eigen",
-    ],
-    # Link against CUDA runtime.
     linkopts = [
         "-lcuda",
         "-lcudart",
     ],
+    tags = ["manual"],
+    deps = [],
 )
 
 add_lint_tests(enable_clang_format_lint = False)

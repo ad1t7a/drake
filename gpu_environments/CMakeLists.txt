@@ -33,65 +33,66 @@ if(DRAKE_GPU_AVAILABLE)
   message(STATUS "GPU build: CUDA architectures = ${CMAKE_CUDA_ARCHITECTURES}")
 endif()
 
+# Common include root: parent of drake/ so that
+#   #include "drake/gpu_environments/..."  resolves correctly.
+set(ENV_INCLUDE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+
 # ---------------------------------------------------------------------------
-# Library: gpu_parallel_cartpole_env
+# Library: gpu_environments  (CartPole + Pendulum + shared infrastructure)
 # ---------------------------------------------------------------------------
 
 set(ENV_SOURCES
     gpu_parallel_cartpole_env.cc
+    gpu_parallel_pendulum_env.cc
 )
 
 if(DRAKE_GPU_AVAILABLE)
-  # Include the CUDA kernel source when building for GPU.
-  list(APPEND ENV_SOURCES cartpole_step.cu)
+  list(APPEND ENV_SOURCES cartpole_step.cu pendulum_step.cu)
 
-  add_library(gpu_parallel_cartpole_env STATIC ${ENV_SOURCES})
-  target_compile_definitions(gpu_parallel_cartpole_env
-    PUBLIC DRAKE_GPU_AVAILABLE)
-  target_link_libraries(gpu_parallel_cartpole_env
-    PUBLIC CUDA::cudart)
-  set_target_properties(gpu_parallel_cartpole_env PROPERTIES
+  add_library(gpu_environments STATIC ${ENV_SOURCES})
+  target_compile_definitions(gpu_environments PUBLIC DRAKE_GPU_AVAILABLE)
+  target_link_libraries(gpu_environments PUBLIC CUDA::cudart)
+  set_target_properties(gpu_environments PROPERTIES
     CUDA_SEPARABLE_COMPILATION ON)
 else()
-  add_library(gpu_parallel_cartpole_env STATIC ${ENV_SOURCES})
-  target_link_libraries(gpu_parallel_cartpole_env
-    PUBLIC pthread)
+  add_library(gpu_environments STATIC ${ENV_SOURCES})
+  target_link_libraries(gpu_environments PUBLIC pthread)
 endif()
 
-# The include root is the parent of the drake source tree, so that
-#   #include "drake/gpu_environments/..."  resolves correctly.
-# CMAKE_CURRENT_SOURCE_DIR = <drake_root>/gpu_environments
-# We need <drake_root>/..  so that "drake/..." includes work.
-target_include_directories(gpu_parallel_cartpole_env
-  PUBLIC
-    "${CMAKE_CURRENT_SOURCE_DIR}/../.."
-)
+target_include_directories(gpu_environments PUBLIC "${ENV_INCLUDE_ROOT}")
+
+# Backwards-compat alias so existing CMake targets linking
+# gpu_parallel_cartpole_env still work.
+add_library(gpu_parallel_cartpole_env ALIAS gpu_environments)
 
 # ---------------------------------------------------------------------------
-# Test executable
+# Test executables
 # ---------------------------------------------------------------------------
 
+# CartPole 128-environment test.
 add_executable(gpu_parallel_128_test
-    test/gpu_parallel_128_test.cc
-)
+    test/gpu_parallel_128_test.cc)
+target_link_libraries(gpu_parallel_128_test PRIVATE gpu_environments pthread)
 
-target_link_libraries(gpu_parallel_128_test
-  PRIVATE
-    gpu_parallel_cartpole_env
-    pthread
-)
+# Pendulum 128-environment test.
+add_executable(gpu_parallel_pendulum_128_test
+    test/gpu_parallel_pendulum_128_test.cc)
+target_link_libraries(gpu_parallel_pendulum_128_test
+    PRIVATE gpu_environments pthread)
 
-# Enable CTest.
+# CTest registration.
 enable_testing()
-add_test(NAME gpu_parallel_128_test COMMAND gpu_parallel_128_test)
+add_test(NAME gpu_parallel_128_test         COMMAND gpu_parallel_128_test)
+add_test(NAME gpu_parallel_pendulum_128_test COMMAND gpu_parallel_pendulum_128_test)
 
 # ---------------------------------------------------------------------------
 # Install (optional)
 # ---------------------------------------------------------------------------
-install(TARGETS gpu_parallel_cartpole_env
-    ARCHIVE DESTINATION lib
-)
-install(FILES gpu_parallel_cartpole_env.h
+install(TARGETS gpu_environments ARCHIVE DESTINATION lib)
+install(FILES
+    gpu_env_common.h
+    gpu_parallel_cartpole_env.h
+    gpu_parallel_pendulum_env.h
     DESTINATION include/drake/gpu_environments
 )
 
@@ -100,9 +101,10 @@ install(FILES gpu_parallel_cartpole_env.h
 # ---------------------------------------------------------------------------
 message(STATUS "")
 message(STATUS "=== gpu_parallel_environments build configuration ===")
-message(STATUS "  C++ standard : ${CMAKE_CXX_STANDARD}")
-message(STATUS "  GPU (CUDA)   : ${DRAKE_GPU_AVAILABLE}")
+message(STATUS "  C++ standard    : ${CMAKE_CXX_STANDARD}")
+message(STATUS "  GPU (CUDA)      : ${DRAKE_GPU_AVAILABLE}")
+message(STATUS "  Environments    : CartPole, Pendulum")
 if(DRAKE_GPU_AVAILABLE)
-  message(STATUS "  CUDA archs   : ${CMAKE_CUDA_ARCHITECTURES}")
+  message(STATUS "  CUDA archs      : ${CMAKE_CUDA_ARCHITECTURES}")
 endif()
 message(STATUS "=====================================================")

@@ -97,11 +97,17 @@ ctest --output-on-failure
 | 2026-03-10 10:30 | FIX      | Fixed `std::vector<bool>` ABI issue — changed to `uint8_t` for GPU memory compatibility |
 | 2026-03-10 10:35 | FIX      | Fixed include paths in CMakeLists (needed `../../` not `../` to resolve `drake/gpu_environments/...` includes) |
 | 2026-03-10 10:40 | FIX      | Fixed Test 3 physics comparison — initial implementation compared cumulative reward but parallel env auto-resets (continuing to accumulate) while serial reference stopped at termination. Fixed by step-by-step state comparison before first termination |
-| 2026-03-10 10:45 | **PASS** | **All 7 tests pass on CPU fallback path** |
+| 2026-03-10 10:45 | **PASS** | **All 7 CartPole tests pass on CPU fallback path** |
+| 2026-03-10 11:00 | ITER-2   | Extracted shared `gpu_env_common.h` — `EnvMatrix`, `EnvVector`, `StepResult`, `XorshiftFloat`, `CpuParallelFor`; updated CartPole to use it |
+| 2026-03-10 11:05 | IMPL     | Added `gpu_parallel_pendulum_env.h/.cc` — Pendulum-v1 (200-step episodes, cosine/sine/ω observations, negative reward) |
+| 2026-03-10 11:10 | IMPL     | Added `pendulum_step.cu` — CUDA kernels for Pendulum reset + step; per-thread environment, angle speed clamped to ±8 rad/s |
+| 2026-03-10 11:15 | IMPL     | Added `test/gpu_parallel_pendulum_128_test.cc` — 5 tests + benchmark for 128 Pendulum environments |
+| 2026-03-10 11:20 | IMPL     | Updated `CMakeLists.txt` — unified `gpu_environments` static lib for both CartPole and Pendulum; two test executables |
+| 2026-03-10 11:25 | **PASS** | **All 12 tests pass (7 CartPole + 5 Pendulum)** |
 
 ---
 
-## Test Results (CPU Fallback — 2026-03-10)
+## Test Results — Iteration 2 (CPU Fallback — 2026-03-10)
 
 ```
 [TEST 1] Construction and Reset
@@ -120,6 +126,25 @@ ctest --output-on-failure
   Elapsed: 0.0618 s  |  1,035,182 env-steps/s  |  0.97 us/env-step
 
 ALL TESTS PASSED
+```
+
+### Pendulum Test Results
+
+```
+[TEST 1] Pendulum: Construction and Reset
+  PASS: 128 pendulum environments reset; obs in valid range.
+[TEST 2] Pendulum: Single Step
+  PASS: single step; all rewards ≤ 0; no premature dones.
+[TEST 3] Pendulum: Physics correctness
+  PASS: env-0 matches serial for 150 steps (tol=1e-05).
+[TEST 4] Pendulum: Episode auto-reset at 200 steps
+  PASS: 128 episode terminations observed (128 expected).
+[TEST 5] Pendulum: Observation range validation
+  PASS: 128 x 500 steps — all observations finite and in range.
+[BENCH ] Pendulum: 128 envs x 500 steps
+  Elapsed: 0.0629 s  |  1,017,546 env-steps/s  |  0.98 us/env-step
+
+ALL PENDULUM TESTS PASSED
 ```
 
 ---
@@ -156,7 +181,9 @@ _No reverts yet._
 
 ## Known Issues / TODOs
 
-- [ ] Add Python bindings for `GpuParallelCartpoleEnv` (future work)
-- [ ] Benchmark CPU vs GPU throughput
-- [ ] Support multiple environment types beyond CartPole
-- [ ] Add double-precision GPU support (currently float32)
+- [ ] Add Python bindings for GPU environments (future work)
+- [ ] Benchmark CPU vs GPU throughput (requires NVIDIA hardware)
+- [ ] Add double-precision (float64) GPU support
+- [ ] Add more environment types: Acrobot, MountainCar, LunarLander
+- [ ] Add batched policy evaluation (apply RL policy to all 128 envs in one kernel)
+- [x] ~~Support multiple environment types beyond CartPole~~ ✓ Added Pendulum

@@ -3,25 +3,27 @@ load("//tools/skylark:cc.bzl", "cc_test")
 package(default_visibility = ["//visibility:private"])
 
 # ---------------------------------------------------------------------------
-# Test: 128 parallel environments — CPU build (no CUDA required)
+# CartPole 128-environment test — CPU build
 # ---------------------------------------------------------------------------
 cc_test(
     name = "gpu_parallel_128_test",
     size = "small",
     srcs = ["gpu_parallel_128_test.cc"],
-    deps = [
-        "//gpu_environments:gpu_parallel_cartpole_env",
-    ],
+    deps = ["//gpu_environments:gpu_environments"],
 )
 
 # ---------------------------------------------------------------------------
-# Test: 128 parallel environments — GPU/CUDA build
-#
-# Build with:
-#   bazel test //gpu_environments/test:gpu_parallel_128_test_cuda \
-#       --define=drake_gpu=true
-#
-# Requires CUDA 11.8+ and an NVIDIA GPU.
+# Pendulum 128-environment test — CPU build
+# ---------------------------------------------------------------------------
+cc_test(
+    name = "gpu_parallel_pendulum_128_test",
+    size = "small",
+    srcs = ["gpu_parallel_pendulum_128_test.cc"],
+    deps = ["//gpu_environments:gpu_environments"],
+)
+
+# ---------------------------------------------------------------------------
+# GPU/CUDA variants (require CUDA 11.8+ and NVIDIA device)
 # ---------------------------------------------------------------------------
 cc_test(
     name = "gpu_parallel_128_test_cuda",
@@ -29,7 +31,14 @@ cc_test(
     srcs = ["gpu_parallel_128_test.cc"],
     copts = ["-DDRAKE_GPU_AVAILABLE"],
     tags = ["manual"],
-    deps = [
-        "//gpu_environments:gpu_parallel_cartpole_env_cuda",
-    ],
+    deps = ["//gpu_environments:gpu_environments_cuda"],
+)
+
+cc_test(
+    name = "gpu_parallel_pendulum_128_test_cuda",
+    size = "small",
+    srcs = ["gpu_parallel_pendulum_128_test.cc"],
+    copts = ["-DDRAKE_GPU_AVAILABLE"],
+    tags = ["manual"],
+    deps = ["//gpu_environments:gpu_environments_cuda"],
 )

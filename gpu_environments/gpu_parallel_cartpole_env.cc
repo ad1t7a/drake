@@ -9,27 +9,8 @@
 
 #include "drake/gpu_environments/gpu_parallel_cartpole_env.h"
 
-#include <algorithm>
 #include <cstdio>
-#include <cstring>
-#include <limits>
 #include <stdexcept>
-#include <thread>
-#include <vector>
-
-// ---------------------------------------------------------------------------
-// xorshift32 — fast, reproducible, dependency-free PRNG
-// ---------------------------------------------------------------------------
-
-static inline float xorshift_float(uint32_t& state, float scale) {
-  state ^= state << 13;
-  state ^= state >> 17;
-  state ^= state << 5;
-  // Map to [-scale, +scale].
-  float r = static_cast<float>(state) /
-            static_cast<float>(std::numeric_limits<uint32_t>::max());
-  return (r * 2.0f - 1.0f) * scale;
-}
 
 // ---------------------------------------------------------------------------
 // CUDA declarations (only when CUDA is available)
@@ -230,50 +211,23 @@ EnvMatrix GpuParallelCartpoleEnv::GetObservations() const {
 // ===========================================================================
 
 void GpuParallelCartpoleEnv::CpuReset(const uint32_t* seed_ptr) {
-  const int N = num_envs_;
-  const int hw_threads =
-      static_cast<int>(std::thread::hardware_concurrency());
-  const int num_threads = std::max(1, std::min(hw_threads, N));
-
-  auto worker = [&](int start, int end) {
+  CpuParallelFor(num_envs_, [&](int start, int end) {
     for (int i = start; i < end; ++i) {
       uint32_t s = seed_ptr[i];
-      // Ensure seed != 0 (xorshift32 fails for 0).
       if (s == 0) s = 0xBEEFu;
-      h_x_[i]     = xorshift_float(s, kInitRange);
-      h_xdot_[i]  = xorshift_float(s, kInitRange);
-      h_theta_[i] = xorshift_float(s, kInitRange);
-      h_tdot_[i]  = xorshift_float(s, kInitRange);
-      seeds_[i]   = s;  // advance seed for auto-reset
+      h_x_[i]      = XorshiftFloat(s, kInitRange);
+      h_xdot_[i]   = XorshiftFloat(s, kInitRange);
+      h_theta_[i]  = XorshiftFloat(s, kInitRange);
+      h_tdot_[i]   = XorshiftFloat(s, kInitRange);
+      seeds_[i]    = s;
       h_rewards_[i] = 0.0f;
       h_done_[i]    = 0;
     }
-  };
-
-  if (num_threads == 1) {
-    worker(0, N);
-    return;
-  }
-
-  std::vector<std::thread> threads;
-  threads.reserve(num_threads);
-  const int chunk = (N + num_threads - 1) / num_threads;
-  for (int t = 0; t < num_threads; ++t) {
-    int start = t * chunk;
-    int end   = std::min(start + chunk, N);
-    if (start >= end) break;
-    threads.emplace_back(worker, start, end);
-  }
-  for (auto& th : threads) th.join();
+  });
 }
 
 void GpuParallelCartpoleEnv::CpuStep(const float* actions_ptr) {
-  const int N = num_envs_;
-  const int hw_threads =
-      static_cast<int>(std::thread::hardware_concurrency());
-  const int num_threads = std::max(1, std::min(hw_threads, N));
-
-  auto worker = [&](int start, int end) {
+  CpuParallelFor(num_envs_, [&](int start, int end) {
     for (int i = start; i < end; ++i) {
       CartpoleDynamicsStep(h_x_[i], h_xdot_[i], h_theta_[i], h_tdot_[i],
                            actions_ptr[i]);
@@ -285,33 +239,16 @@ void GpuParallelCartpoleEnv::CpuStep(const float* actions_ptr) {
       h_done_[i]    = done ? 1 : 0;
 
       if (done) {
-        // Auto-reset: reinitialise this environment with its updated seed.
         uint32_t s = seeds_[i];
         if (s == 0) s = 0xBEEFu;
-        h_x_[i]     = xorshift_float(s, kInitRange);
-        h_xdot_[i]  = xorshift_float(s, kInitRange);
-        h_theta_[i] = xorshift_float(s, kInitRange);
-        h_tdot_[i]  = xorshift_float(s, kInitRange);
+        h_x_[i]     = XorshiftFloat(s, kInitRange);
+        h_xdot_[i]  = XorshiftFloat(s, kInitRange);
+        h_theta_[i] = XorshiftFloat(s, kInitRange);
+        h_tdot_[i]  = XorshiftFloat(s, kInitRange);
         seeds_[i]   = s;
       }
     }
-  };
-
-  if (num_threads == 1) {
-    worker(0, N);
-    return;
-  }
-
-  std::vector<std::thread> threads;
-  threads.reserve(num_threads);
-  const int chunk = (N + num_threads - 1) / num_threads;
-  for (int t = 0; t < num_threads; ++t) {
-    int start = t * chunk;
-    int end   = std::min(start + chunk, N);
-    if (start >= end) break;
-    threads.emplace_back(worker, start, end);
-  }
-  for (auto& th : threads) th.join();
+  });
 }
 
 // ===========================================================================

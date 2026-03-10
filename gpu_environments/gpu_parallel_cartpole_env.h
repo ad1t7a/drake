@@ -41,80 +41,17 @@
 
 #pragma once
 
-#include <cassert>
+// Shared infrastructure: EnvMatrix, EnvVector, StepResult, XorshiftFloat,
+// CpuParallelFor, GPU macros.
+#include "drake/gpu_environments/gpu_env_common.h"
+
 #include <cmath>
-#include <cstdint>
-#include <cstring>
-#include <stdexcept>
-#include <vector>
 
-// ---------------------------------------------------------------------------
-// GPU / CPU dispatch macros
-// ---------------------------------------------------------------------------
-
-#ifdef DRAKE_GPU_AVAILABLE
-#include <cuda_runtime.h>
-#define CARTPOLE_CALLABLE __device__ __host__
-#else
-#define CARTPOLE_CALLABLE
-#endif
+// CartPole uses GPU_CALLABLE from gpu_env_common.h.
+#define CARTPOLE_CALLABLE GPU_CALLABLE
 
 namespace drake {
 namespace gpu_environments {
-
-// ---------------------------------------------------------------------------
-// Simple column-major float matrix (no external dependencies)
-//
-// Layout: data[col * rows + row]   — matches Eigen default (ColMajor).
-// This allows drop-in substitution with Eigen::MatrixXf if desired.
-// ---------------------------------------------------------------------------
-
-class EnvMatrix {
- public:
-  EnvMatrix() : rows_(0), cols_(0) {}
-  EnvMatrix(int rows, int cols)
-      : rows_(rows), cols_(cols), data_(rows * cols, 0.0f) {}
-
-  float& operator()(int r, int c) { return data_[c * rows_ + r]; }
-  float operator()(int r, int c) const { return data_[c * rows_ + r]; }
-
-  int rows() const { return rows_; }
-  int cols() const { return cols_; }
-
-  /// Pointer to underlying flat float array (column-major).
-  float* data() { return data_.data(); }
-  const float* data() const { return data_.data(); }
-
-  void setZero() { std::fill(data_.begin(), data_.end(), 0.0f); }
-
-  void resize(int r, int c) {
-    rows_ = r;
-    cols_ = c;
-    data_.assign(r * c, 0.0f);
-  }
-
- private:
-  int rows_;
-  int cols_;
-  std::vector<float> data_;
-};
-
-/// 1-D float vector (one entry per environment).
-class EnvVector {
- public:
-  EnvVector() : size_(0) {}
-  explicit EnvVector(int n) : size_(n), data_(n, 0.0f) {}
-
-  float& operator[](int i) { return data_[i]; }
-  float operator[](int i) const { return data_[i]; }
-  int size() const { return size_; }
-
-  void resize(int n) { size_ = n; data_.assign(n, 0.0f); }
-
- private:
-  int size_;
-  std::vector<float> data_;
-};
 
 // ---------------------------------------------------------------------------
 // CartPole physical constants (float32 for GPU performance)
@@ -130,15 +67,7 @@ inline constexpr float kMaxPoleAngle =
     static_cast<float>(12.0 * 3.14159265358979323846 / 180.0);  ///< rad ≈ 0.209
 inline constexpr float kInitRange    = 0.05f;  ///< uniform init range
 
-// ---------------------------------------------------------------------------
-// Per-step results
-// ---------------------------------------------------------------------------
-
-struct StepResult {
-  EnvMatrix observations;        ///< [kObsDim x N]
-  EnvVector rewards;             ///< [N]
-  std::vector<bool> done;        ///< [N]
-};
+// StepResult is defined in gpu_env_common.h.
 
 // ---------------------------------------------------------------------------
 // Single-environment CartPole step (CPU + GPU callable)
