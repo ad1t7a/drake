@@ -104,6 +104,31 @@ ctest --output-on-failure
 | 2026-03-10 11:15 | IMPL     | Added `test/gpu_parallel_pendulum_128_test.cc` — 5 tests + benchmark for 128 Pendulum environments |
 | 2026-03-10 11:20 | IMPL     | Updated `CMakeLists.txt` — unified `gpu_environments` static lib for both CartPole and Pendulum; two test executables |
 | 2026-03-10 11:25 | **PASS** | **All 12 tests pass (7 CartPole + 5 Pendulum)** |
+| 2026-03-10 11:30 | ITER-3   | Added `gpu_parallel_mountaincar_env.h/.cc` — continuous MountainCar-v0 with pos/vel bounds enforcement, goal-reaching reward |
+| 2026-03-10 11:35 | IMPL     | Added `mountaincar_step.cu` — CUDA kernel for MC step; auto-reset after 999 steps or goal reached |
+| 2026-03-10 11:40 | IMPL     | Added `test/gpu_parallel_mountaincar_128_test.cc` — 4 tests + benchmark (pos/vel bounds, physics vs serial, auto-reset) |
+| 2026-03-10 11:45 | **PASS** | **All 17 tests pass (7 CartPole + 5 Pendulum + 5 MountainCar); ~1.3M env-steps/s** |
+
+---
+
+## Test Results — Iteration 3 (CPU Fallback — 2026-03-10)
+
+### MountainCar Test Results
+
+```
+[TEST 1] MountainCar: Construction and Reset
+  PASS: 128 MC environments reset; pos in [-0.6,-0.4], vel=0.
+[TEST 2] MountainCar: Single Step
+  PASS: single step; no dones.
+[TEST 3] MountainCar: Physics correctness
+  PASS: env-0 matches serial for 100 steps (tol=1e-05).
+[TEST 4] MountainCar: State bounds validation
+  PASS: 128 x 500 steps — pos in [-1.20,0.60] vel in [-0.070,0.070].
+[BENCH ] MountainCar: 128 envs x 500 steps
+  Elapsed: 0.0501 s  |  1,277,954 env-steps/s  |  0.78 us/env-step
+
+ALL MOUNTAINCAR TESTS PASSED
+```
 
 ---
 
@@ -184,6 +209,6 @@ _No reverts yet._
 - [ ] Add Python bindings for GPU environments (future work)
 - [ ] Benchmark CPU vs GPU throughput (requires NVIDIA hardware)
 - [ ] Add double-precision (float64) GPU support
-- [ ] Add more environment types: Acrobot, MountainCar, LunarLander
+- [ ] Add more environment types: Acrobot, LunarLander
 - [ ] Add batched policy evaluation (apply RL policy to all 128 envs in one kernel)
-- [x] ~~Support multiple environment types beyond CartPole~~ ✓ Added Pendulum
+- [x] ~~Support multiple environment types beyond CartPole~~ ✓ Added Pendulum, MountainCar

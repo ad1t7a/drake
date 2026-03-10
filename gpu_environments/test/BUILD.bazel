@@ -42,3 +42,22 @@ cc_test(
     tags = ["manual"],
     deps = ["//gpu_environments:gpu_environments_cuda"],
 )
+
+# ---------------------------------------------------------------------------
+# MountainCar 128-environment test — CPU build
+# ---------------------------------------------------------------------------
+cc_test(
+    name = "gpu_parallel_mountaincar_128_test",
+    size = "small",
+    srcs = ["gpu_parallel_mountaincar_128_test.cc"],
+    deps = ["//gpu_environments:gpu_environments"],
+)
+
+cc_test(
+    name = "gpu_parallel_mountaincar_128_test_cuda",
+    size = "small",
+    srcs = ["gpu_parallel_mountaincar_128_test.cc"],
+    copts = ["-DDRAKE_GPU_AVAILABLE"],
+    tags = ["manual"],
+    deps = ["//gpu_environments:gpu_environments_cuda"],
+)

@@ -23,11 +23,13 @@ cc_library(
     srcs = [
         "gpu_parallel_cartpole_env.cc",
         "gpu_parallel_pendulum_env.cc",
+        "gpu_parallel_mountaincar_env.cc",
     ],
     hdrs = [
         "gpu_env_common.h",
         "gpu_parallel_cartpole_env.h",
         "gpu_parallel_pendulum_env.h",
+        "gpu_parallel_mountaincar_env.h",
     ],
     copts = ["-std=c++17"],
     deps = [],
@@ -54,12 +56,14 @@ cc_library(
     srcs = [
         "gpu_parallel_cartpole_env.cc",
         "gpu_parallel_pendulum_env.cc",
+        "gpu_parallel_mountaincar_env.cc",
         # .cu files must be pre-compiled with nvcc and provided as cc_import.
     ],
     hdrs = [
         "gpu_env_common.h",
         "gpu_parallel_cartpole_env.h",
         "gpu_parallel_pendulum_env.h",
+        "gpu_parallel_mountaincar_env.h",
     ],
     copts = [
         "-std=c++17",

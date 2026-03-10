@@ -38,16 +38,17 @@ endif()
 set(ENV_INCLUDE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 
 # ---------------------------------------------------------------------------
-# Library: gpu_environments  (CartPole + Pendulum + shared infrastructure)
+# Library: gpu_environments  (CartPole + Pendulum + MountainCar + infra)
 # ---------------------------------------------------------------------------
 
 set(ENV_SOURCES
     gpu_parallel_cartpole_env.cc
     gpu_parallel_pendulum_env.cc
+    gpu_parallel_mountaincar_env.cc
 )
 
 if(DRAKE_GPU_AVAILABLE)
-  list(APPEND ENV_SOURCES cartpole_step.cu pendulum_step.cu)
+  list(APPEND ENV_SOURCES cartpole_step.cu pendulum_step.cu mountaincar_step.cu)
 
   add_library(gpu_environments STATIC ${ENV_SOURCES})
   target_compile_definitions(gpu_environments PUBLIC DRAKE_GPU_AVAILABLE)
@@ -80,10 +81,17 @@ add_executable(gpu_parallel_pendulum_128_test
 target_link_libraries(gpu_parallel_pendulum_128_test
     PRIVATE gpu_environments pthread)
 
+# MountainCar 128-environment test.
+add_executable(gpu_parallel_mountaincar_128_test
+    test/gpu_parallel_mountaincar_128_test.cc)
+target_link_libraries(gpu_parallel_mountaincar_128_test
+    PRIVATE gpu_environments pthread)
+
 # CTest registration.
 enable_testing()
-add_test(NAME gpu_parallel_128_test         COMMAND gpu_parallel_128_test)
-add_test(NAME gpu_parallel_pendulum_128_test COMMAND gpu_parallel_pendulum_128_test)
+add_test(NAME gpu_parallel_128_test              COMMAND gpu_parallel_128_test)
+add_test(NAME gpu_parallel_pendulum_128_test     COMMAND gpu_parallel_pendulum_128_test)
+add_test(NAME gpu_parallel_mountaincar_128_test  COMMAND gpu_parallel_mountaincar_128_test)
 
 # ---------------------------------------------------------------------------
 # Install (optional)
@@ -93,6 +101,7 @@ install(FILES
     gpu_env_common.h
     gpu_parallel_cartpole_env.h
     gpu_parallel_pendulum_env.h
+    gpu_parallel_mountaincar_env.h
     DESTINATION include/drake/gpu_environments
 )
 
@@ -103,7 +112,7 @@ message(STATUS "")
 message(STATUS "=== gpu_parallel_environments build configuration ===")
 message(STATUS "  C++ standard    : ${CMAKE_CXX_STANDARD}")
 message(STATUS "  GPU (CUDA)      : ${DRAKE_GPU_AVAILABLE}")
-message(STATUS "  Environments    : CartPole, Pendulum")
+message(STATUS "  Environments    : CartPole, Pendulum, MountainCar")
 if(DRAKE_GPU_AVAILABLE)
   message(STATUS "  CUDA archs      : ${CMAKE_CUDA_ARCHITECTURES}")
 endif()
